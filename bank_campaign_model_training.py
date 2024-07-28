@@ -1,26 +1,23 @@
-# !pip install imblearn
-# !pip install xgboost
-
-import pandas as pd
-from imblearn.over_sampling import RandomOverSampler
+import pandas as pd 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from xgboost import XGBClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import make_pipeline
 from sklearn.metrics import classification_report
-from joblib import dump, load
+from joblib import dump,load
 from google.cloud import storage
 import json
 from google.cloud import bigquery
 from datetime import datetime
-from sklearn.pipeline import make_pipeline
+
 storage_client = storage.Client()
 bucket = storage_client.bucket("gcs-mlops")
 
 def load_data(path):
-    return pd.read_csv(path, sep=";")
+    return pd.read_csv(path,sep=";")
 
 def encode_categorical(df, categorical_cols):
     le = LabelEncoder()
@@ -67,20 +64,22 @@ def train_model(model_name, x_train, y_train):
 
 def get_classification_report(pipeline, X_test, y_test):
     y_pred = pipeline.predict(X_test)
-    report = classification_report(y_test, y_pred, output_dict=True)
+    report = classification_report(y_test, y_pred,output_dict=True)
     return report
 
-def save_model_artifact(model_name, pipeline):
+def save_model_artifact(model_name,pipeline):
     artifact_name = model_name+'_model.joblib'
-    dump(pipeline, artifact_name)
+    dump(pipeline,artifact_name)
     # Uncomment below lines for cloud execution
-    model_artifact = bucket.blob('bank_campaign_artifact/'+artifact_name)
+    model_artifact = bucket.blob('ml-artifacts/'+artifact_name)
     model_artifact.upload_from_filename(artifact_name)
+
 
 def load_model_artifact(file_name):
     blob = bucket.blob("ml-artifacts/" + file_name)
     blob.download_to_filename(file_name)
     return load(file_name)
+
 
 def write_metrics_to_bigquery(algo_name, training_time, model_metrics):
     client = bigquery.Client()
@@ -95,24 +94,24 @@ def write_metrics_to_bigquery(algo_name, training_time, model_metrics):
     else:
         print("Error inserting metrics into BigQuery:", errors)
 
+
 def main():
-    input_data_path = "gs://gcs-mlops/bank_campaign_data/bank-campaign-training-data.csv"
-    model_name = 'xgboost'
+    input_data_path = "gs://gcs-mlops/bank_campaign_data/bank-additional.csv"
+    model_name='xgboost'
     df = load_data(input_data_path)
     categorical_cols = ['job', 'marital', 'education', 'default', 'housing', 'loan', 'contact', 'month', 'day_of_week', 'poutcome']
-    df = encode_categorical(df, categorical_cols)
+    df = encode_categorical(df,categorical_cols)
     df = apply_bucketing(df)
     X, y = preprocess_features(df)
-
-    oversampler = RandomOverSampler(random_state=42)
-    X_resampled, y_resampled = oversampler.fit_resample(X, y)
-
-    X_train, X_test, y_train, y_test = train_test_split(X_resampled, y_resampled, test_size=0.2, random_state=42)
-    pipeline = train_model(model_name, X_train, y_train)
-    accuracy_metrics = get_classification_report(pipeline, X_test, y_test)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    pipeline = train_model(model_name,X_train, y_train)
+    accuracy_metrics = get_classification_report(pipeline,X_test,y_test)
     training_time = datetime.now()
     write_metrics_to_bigquery(model_name, training_time, accuracy_metrics)
-    save_model_artifact(model_name, pipeline)
+    save_model_artifact(model_name,pipeline)
+
 
 if __name__ == "__main__":
     main()
+
+# main()
