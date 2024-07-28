@@ -16,13 +16,16 @@ from datetime import datetime
 storage_client = storage.Client()
 bucket = storage_client.bucket("gcs-mlops")
 
+
 def load_data(path):
     return pd.read_csv(path,sep=";")
+
 
 def encode_categorical(df, categorical_cols):
     le = LabelEncoder()
     df[categorical_cols] = df[categorical_cols].apply(lambda col: le.fit_transform(col))
     return df
+
 
 def preprocess_features(df):
     X = df.drop('y', axis=1)
@@ -32,6 +35,7 @@ def preprocess_features(df):
     X = pd.DataFrame(sc.fit_transform(X), columns=X.columns)
     return X, y
 
+
 def bucket_pdays(pdays):
     if pdays == 999:
         return 0
@@ -40,11 +44,13 @@ def bucket_pdays(pdays):
     else:
         return 2
 
+
 def apply_bucketing(df):
     df['pdays_bucketed'] = df['pdays'].apply(bucket_pdays)
     df = df.drop('pdays', axis=1)
     df = df.drop('duration', axis=1)
     return df
+
 
 def train_model(model_name, x_train, y_train):
     if model_name == 'logistic':
@@ -62,10 +68,12 @@ def train_model(model_name, x_train, y_train):
     pipeline.fit(x_train, y_train)
     return pipeline
 
+
 def get_classification_report(pipeline, X_test, y_test):
     y_pred = pipeline.predict(X_test)
     report = classification_report(y_test, y_pred,output_dict=True)
     return report
+
 
 def save_model_artifact(model_name,pipeline):
     artifact_name = model_name+'_model.joblib'
